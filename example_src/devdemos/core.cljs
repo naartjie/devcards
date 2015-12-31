@@ -253,26 +253,59 @@
                          (when (not= param :bmi)
                            (om/update! bmi-data :bmi nil)))}]))
 
+(def round-down js/Math.floor)
+(def round-up js/Math.ceil)
+(def round-mid js/Math.round)
+(def round round-mid)
+
+(def inches-in-foot 12)
+(def centimeters-in-meter 100)
+(def inches-in-meter 39.37008)
+
+(def inches-in-centimeter (/ inches-in-meter centimeters-in-meter))
+(def centimeters-in-inch (/ 1 inches-in-centimeter))
+
+(defn inches [cm] (round (/ cm centimeters-in-inch)))
+(defn feet [cm] (round-down (/ (inches cm) inches-in-foot)))
+
+(def height-imperial #(str (feet %) "' " (mod (inches %) 12) "\""))
+
+(deftest imperial-conversion
+  "imperial functions"
+  (testing "inches fn"
+    (is (= 12 (inches 30)))
+    (is (= 1 (inches 2.5)))
+    (is (= (round inches-in-meter) (inches 100)))
+  (testing "feet fn"
+    (is (= 1 (feet 30)))
+    (is (= 2 (feet 60)))
+    (is (= 5 (feet 175)))
+    (is (= 1 (feet (* centimeters-in-inch inches-in-foot)))))
+  (testing "convertion cm to feet/inches"
+    (is (= "5' 9\"" (height-imperial 175))))))
+
 (defn om-bmi-component [bmi-data owner]
   (let [{:keys [weight height bmi]} (calc-bmi bmi-data)
-        [color diagnose] (cond
-                          (< bmi 18.5) ["orange" "underweight"]
-                          (< bmi 25) ["inherit" "normal"]
-                          (< bmi 30) ["orange" "overweight"]
-                          :else ["red" "obese"])]
+        bold {:font-weight "bold"}
+        not-bold {}
+        [color diagnose maybe-bold] (cond
+                          (< bmi 18.5) ["orange" "underweight" not-bold]
+                          (< bmi 25) ["inherit" "normal" not-bold]
+                          (< bmi 30) ["orange" "overweight" bold]
+                          :else ["red" "obese" bold])]
     (om/component
      (sab/html
       [:div 
        [:h3 "BMI calculator"]
        [:div
-        [:span (str "Height: " (int height) "cm")]
+        [:span (str "Height: " (height-imperial height))]
         (om-slider bmi-data :height height 100 220)]
        [:div
         [:span (str "Weight: " (int weight) "kg")]
         (om-slider bmi-data :weight weight 30 150)]
        [:div
         [:span (str "BMI: " (int bmi) " ")]
-        [:span {:style {:color color}} diagnose]
+        [:span {:style (merge maybe-bold {:color color})} diagnose]
         (om-slider bmi-data :bmi bmi 10 50)]]))))
 
 (defcard
